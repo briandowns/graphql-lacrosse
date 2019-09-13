@@ -87,7 +87,7 @@ func (d *database) Players() ([]player, error) {
 	var players []player
 	var row interface{}
 	for rows.Next(&row) {
-		players = append(players, row)
+		players = append(players, row.(player))
 	}
 	return players, nil
 }

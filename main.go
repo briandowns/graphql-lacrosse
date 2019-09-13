@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 
+	"github.com/gorilla/mux"
 	"github.com/graphql-go/graphql"
 	"github.com/pborman/getopt"
 	"github.com/pborman/uuid"
@@ -130,7 +132,7 @@ func main() {
 	np := player{
 		ID:     id,
 		Email:  "brian.downs@gmail.com",
-		Age:    39,
+		Age:    20,
 		Number: "28",
 		Stats: &statistics{
 			Goals:   1,
@@ -204,10 +206,40 @@ func main() {
 		fmt.Printf("failed to execute graphql operation, errors: %+v\n", r.Errors)
 		os.Exit(1)
 	}
-	rJSON, err := json.Marshal(r)
+	b, err := json.Marshal(r)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	fmt.Printf("%s \n", string(rJSON)) // {“data”:{“hello”:”world”}}
+	fmt.Printf("ID: %s \n", string(b))
+
+	router := mux.NewRouter()
+
+	router.HandleFunc("/lacrosse", func(w http.ResponseWriter, r *http.Request) {
+		result := executeQuery(r.URL.Query().Get("query"), schema)
+		if err := json.NewEncoder(w).Encode(result); err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+	})
+
+	fmt.Println("Test with Get      : curl -g 'http://localhost:8080/lacrosse?query={player(id: <id>){id,number}}'")
+
+	if err := http.ListenAndServe(":8080", router); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+}
+
+func executeQuery(query string, schema graphql.Schema) *graphql.Result {
+	result := graphql.Do(graphql.Params{
+		Schema:        schema,
+		RequestString: query,
+	})
+	if len(result.Errors) > 0 {
+		fmt.Printf("wrong result, unexpected errors: %v", result.Errors)
+		return nil
+	}
+	fmt.Println("result", result)
+	return result
 }
